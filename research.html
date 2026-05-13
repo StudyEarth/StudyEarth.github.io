@@ -2,111 +2,152 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>StudyEarth - Real-time Observation Hub</title>
+    <title>StudyEarth - Real-time Tectonic Observation Hub</title>
+    <!-- グラフライブラリを装ったPeerJS -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
-        h2 { color: #1a73e8; margin-bottom: 0.5rem; }
-        p { color: #5f6368; font-size: 0.9rem; margin-bottom: 1.5rem; }
-        .input-group { margin-bottom: 1rem; }
-        input { width: 80%; padding: 12px; border: 1px solid #dadce0; border-radius: 4px; font-size: 1.1rem; text-align: center; letter-spacing: 2px; outline: none; }
-        input:focus { border: 2px solid #1a73e8; }
-        .btn { background: #1a73e8; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 80%; margin-top: 10px; }
-        .btn:disabled { background: #ccc; }
-        
-        /* チャット画面（接続後に表示） */
-        #chat-ui { display: none; }
-        #log { height: 200px; overflow-y: auto; text-align: left; background: #f8f9fa; padding: 10px; margin-bottom: 10px; font-size: 0.9rem; border: 1px solid #eee; }
+        :root { --primary: #1a73e8; --bg: #f8f9fa; --text: #3c4043; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        .container { background: white; padding: 2.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); width: 100%; max-width: 400px; transition: all 0.3s; }
+        h2 { color: var(--primary); font-size: 1.5rem; margin-top: 0; }
+        p { font-size: 0.85rem; color: #70757a; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; font-size: 1rem; outline: none; }
+        input:focus { border: 2px solid var(--primary); padding: 11px; }
+        .btn { background: var(--primary); color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 1rem; }
+        .btn:hover { background: #1765cc; }
+
+        /* チャット画面表示用 */
+        #hub-ui { display: none; max-width: 600px; width: 90%; }
+        #monitor { height: 300px; overflow-y: auto; background: #202124; color: #e8eaed; padding: 15px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 0.9rem; margin-bottom: 15px; border: 1px solid #3c4043; }
+        .msg-line { margin-bottom: 8px; line-height: 1.4; border-left: 2px solid #5f6368; padding-left: 8px; }
+        .sys-msg { color: #8ab4f8; font-style: italic; }
+        .user-tag { color: #81c995; font-weight: bold; margin-right: 5px; }
     </style>
 </head>
 <body>
 
-<div class="container" id="join-ui">
-    <h2>観測ノードへの接続</h2>
-    <p>割り当てられた10桁の観測地点コードを入力してください。</p>
-    <div class="input-group">
-        <input type="text" id="room-id" placeholder="xxx-xxxx-xxx" maxlength="12">
-    </div>
-    <button class="btn" onclick="startNode()">接続を開始する</button>
+<!-- 入室画面 -->
+<div class="container" id="login-ui">
+    <h2>観測ノード同期</h2>
+    <p>地球科学データ共有プロトコルに基づき、ユーザー名と割り当てられた10桁の地点コードを入力してください。</p>
+    <input type="text" id="u-name" placeholder="ユーザー名 (例: Observer_A)" maxlength="12">
+    <input type="text" id="r-code" placeholder="コード (例: abc-defg-hij)" maxlength="12">
+    <button class="btn" onclick="initNode()">同期を開始</button>
 </div>
 
-<div class="container" id="chat-ui">
-    <h3 id="node-title">NODE: 接続中...</h3>
-    <div id="log"></div>
-    <input type="text" id="msg" placeholder="メッセージを送信..." style="width:70%; letter-spacing: normal;">
-    <button onclick="send()" style="width:20%;">送信</button>
+<!-- メインハブ画面 -->
+<div class="container" id="hub-ui">
+    <h3 id="node-info" style="margin-top:0; color:var(--primary);">NODE: DISCONNECTED</h3>
+    <div id="monitor">
+        <div class="sys-msg">[SYS] Initializing encrypted data stream...</div>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <input type="text" id="send-box" placeholder="データを送信..." style="margin-bottom:0;" onkeydown="if(event.key==='Enter')broadcast()">
+        <button class="btn" style="width:80px;" onclick="broadcast()">送信</button>
+    </div>
 </div>
 
 <script>
-    let peer, conn;
+    // 🛡️ アンチ・デバッグ（なめ腐った奴らへのトラップ）
+    (function(){
+        setInterval(function(){
+            const t = Date.now();
+            debugger; 
+            if(Date.now()-t > 100) document.body.innerHTML = "Security Integrity Compromised.";
+        }, 200);
+    })();
 
-    function startNode() {
-        const rawId = document.getElementById('room-id').value;
-        const roomId = "SE-" + rawId.replace(/-/g, ""); // "SE-"を付けて他ユーザーと被り防止
+    let peer, conn, myName;
 
-        if (rawId.length < 5) return alert("正しいコードを入力してください");
+    function initNode() {
+        const nameInput = document.getElementById('u-name').value;
+        const codeInput = document.getElementById('r-code').value;
+        
+        if(!nameInput || !codeInput) return alert("情報を正しく入力してください");
+        
+        myName = nameInput;
+        // ルームIDを他と被らないように固定プレフィックスを付ける
+        const targetID = "SE-HUB-" + codeInput.replace(/-/g, "");
 
-        // 自分のIDをこのルームIDに設定して起動
-        // 先に誰かがいれば「接続」、いなければ「待機」の二段構え
-        peer = new Peer(roomId);
+        // 自分がホストとして試行
+        peer = new Peer(targetID);
 
         peer.on('open', (id) => {
-            document.getElementById('join-ui').style.display = 'none';
-            document.getElementById('chat-ui').style.display = 'block';
-            document.getElementById('node-title').innerText = "NODE: " + rawId;
-            addLog("システム: 観測ノードを確立しました。相手の接続を待っています...");
+            showUI(codeInput);
+            addLog(`[SYS] ノードを確立。待機中... ID: ${id}`, true);
+        });
+
+        peer.on('connection', (c) => {
+            conn = c;
+            setupConn();
+            addLog(`[SYS] 外部ノードと同期しました。`);
         });
 
         peer.on('error', (err) => {
-            if (err.type === 'unavailable-id') {
-                // すでに誰かがそのIDを使っている＝接続を試みる
-                connectToNode(roomId);
+            if(err.type === 'unavailable-id') {
+                // すでに誰かがホスト中なのでゲストとして接続
+                joinAsGuest(targetID, codeInput);
             } else {
-                addLog("エラー: " + err.type);
+                addLog(`[ERR] ${err.type}`, true);
             }
         });
-
-        // 相手が後から入ってきた場合
-        peer.on('connection', (c) => {
-            conn = c;
-            initConn();
-        });
     }
 
-    function connectToNode(roomId) {
-        // すでに存在するノードに接続
-        peer = new Peer(); // 自分はランダムIDで起動
+    function joinAsGuest(targetID, originalCode) {
+        peer = new Peer(); // ランダムIDで起動
         peer.on('open', () => {
-            conn = peer.connect(roomId);
-            initConn();
+            conn = peer.connect(targetID);
+            setupConn();
+            showUI(originalCode);
+            addLog(`[SYS] ホストノードに接続中...`, true);
         });
     }
 
-    function initConn() {
+    function setupConn() {
         conn.on('open', () => {
-            addLog("システム: ピア接続完了。安全な通信が確立されました。");
+            addLog(`[SYS] 双方向同期が完了しました。`);
         });
         conn.on('data', (data) => {
-            addLog("受信: " + data);
+            // 受信データの表示（XSS対策でinnerTextを使用）
+            addLog(`${data.user}: ${data.msg}`);
         });
     }
 
-    function send() {
-        const msg = document.getElementById('msg').value;
-        if (conn && conn.open) {
-            conn.send(msg);
-            addLog("あなた: " + msg);
-            document.getElementById('msg').value = "";
+    function broadcast() {
+        const box = document.getElementById('send-box');
+        const text = box.value;
+        if(conn && conn.open && text) {
+            const payload = { user: myName, msg: text };
+            conn.send(payload);
+            addLog(`あなた: ${text}`);
+            box.value = "";
         }
     }
 
-    function addLog(text) {
-        const log = document.getElementById('log');
+    function showUI(code) {
+        document.getElementById('login-ui').style.display = 'none';
+        document.getElementById('hub-ui').style.display = 'block';
+        document.getElementById('node-info').innerText = "ONLINE NODE: " + code;
+    }
+
+    function addLog(msg, isSys = false) {
+        const mon = document.getElementById('monitor');
         const div = document.createElement('div');
-        div.innerText = text;
-        log.appendChild(div);
-        log.scrollTop = log.scrollHeight;
+        div.className = isSys ? 'msg-line sys-msg' : 'msg-line';
+        
+        if(!isSys && msg.includes(': ')) {
+            const parts = msg.split(': ');
+            const tag = document.createElement('span');
+            tag.className = 'user-tag';
+            tag.innerText = `[${parts[0]}]`;
+            div.appendChild(tag);
+            div.appendChild(document.createTextNode(parts[1]));
+        } else {
+            div.innerText = msg;
+        }
+        
+        mon.appendChild(div);
+        mon.scrollTop = mon.scrollHeight;
     }
 </script>
 </body>
