@@ -44,31 +44,28 @@
 </footer>
 
 <script>
-    // 🛡️ ここに難読化したコードを仕込んでいく
-    async function executeSecureSearch() {
-        const input = document.getElementById('db-query').value;
-        if(!input) return;
+async function executeSecureSearch() {
+    const input = document.getElementById('db-query').value;
+    if(!input) return;
 
-        // SHA-256ハッシュ化（AI対策の数学的防御）
-        const encoder = new TextEncoder();
-        const data = encoder.encode(input);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // ハッシュ認証
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-        // 🌟 ここに合言葉のハッシュ値を置く
-        // 例: 'sky777' のハッシュ値
-        const targetHash = 'e93149539744c79435061614777e48b991b1574a44f77c385732ef17765ec17b';
+    // 合言葉（sky777）のハッシュ値
+    const targetHash = 'e93149539744c79435061614777e48b991b1574a44f77c385732ef17765ec17b';
 
-        if (hashHex === targetHash) {
-            // 認証成功時：さらに難読化されたリダイレクト処理
-            console.log("Authentication successful. Loading encrypted module...");
-            window.location.href = "research.html";
-        } else {
-            // 失敗時：普通のGoogle検索に飛ばして偽装
-            window.location.href = "https://www.google.com/search?q=" + encodeURIComponent(input + " site:edu");
-        }
+    if (hashHex === targetHash) {
+        // パラメータ名を 'q' に変更してジャンプ！
+        window.location.href = "research.html?q=" + encodeURIComponent(input);
+    } else {
+        // 普通の検索に飛ばす（カモフラージュ）
+        window.location.href = "https://www.google.com/search?q=" + encodeURIComponent(input);
     }
+}
 </script>
 
 </body>
