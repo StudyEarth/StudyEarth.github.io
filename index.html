@@ -3,90 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Board | サーバー一覧</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Juxlyep</title>
     <style>
-        /* CSSは前回と同様のため省略（カードのデザインを保持） */
-        :root { --bg-body: #36393f; --bg-card: #202225; --discord-blurple: #5865F2; --text-main: #ffffff; --text-muted: #b9bbbe; --online-color: #3ba55c; }
-        body { margin: 0; font-family: sans-serif; background-color: var(--bg-body); color: var(--text-main); }
-        header { background: #2f3136; padding: 40px 20px; text-align: center; }
-        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
-        
-        /* カードのスタイル（innerHTMLで生成される要素） */
-        .server-card { background: var(--bg-card); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
-        .card-banner { height: 60px; background: var(--discord-blurple); opacity: 0.7; }
-        .card-content { padding: 40px 20px 20px; position: relative; }
-        .card-icon { position: absolute; top: -30px; left: 20px; width: 60px; height: 60px; border-radius: 18px; border: 4px solid var(--bg-card); }
-        .server-name { font-weight: bold; margin-bottom: 5px; }
-        .tag { font-size: 0.7rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; margin-right: 4px; color: var(--text-muted); }
-        .server-stats { margin-top: auto; border-top: 1px solid rgba(255,255,255,0.05); padding: 10px 20px; display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); }
-        .online-count::before { content: ""; display: inline-block; width: 8px; height: 8px; background: var(--online-color); border-radius: 50%; margin-right: 5px; }
+        /* Wikipediaの基本設計を忠実に再現 */
+        :root {
+            --link-color: #0645ad;
+            --border-color: #a2a9b1;
+            --bg-gray: #f6f6f6;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            background-color: var(--bg-gray);
+            display: flex;
+        }
+
+        /* 左メニュー */
+        nav {
+            width: 160px;
+            padding: 15px;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-family: serif;
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #000;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            border-top: 1px solid var(--border-color);
+        }
+
+        nav li {
+            padding: 5px 0;
+            font-size: 12px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--link-color);
+        }
+
+        /* メイン記事エリア */
+        .main-wrapper {
+            flex-grow: 1;
+            background-color: white;
+            border-left: 1px solid var(--border-color);
+            min-height: 100vh;
+            padding: 20px 40px;
+        }
+
+        h1 {
+            font-family: 'Times New Roman', serif;
+            font-size: 1.8rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-top: 0;
+            font-weight: normal;
+        }
+
+        .tagline {
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+
+        /* 右側インフォボックス */
+        .infobox {
+            float: right;
+            width: 260px;
+            border: 1px solid var(--border-color);
+            background-color: #f8f9fa;
+            margin-left: 20px;
+            font-size: 12px;
+        }
+
+        .infobox table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .infobox th {
+            background-color: #cedff2;
+            border: 1px solid var(--border-color);
+            padding: 5px;
+            text-align: left;
+        }
+
+        .infobox td {
+            border: 1px solid var(--border-color);
+            padding: 5px;
+        }
+
+        h2 {
+            border-bottom: 1px solid var(--border-color);
+            font-size: 1.5rem;
+            font-weight: normal;
+            margin-top: 30px;
+        }
+
+        .content-body {
+            text-align: justify;
+        }
     </style>
 </head>
 <body>
 
-<header>
-    <h1>Discord Server Directory</h1>
-    <p>Botが取得したデータを表示するテストページ</p>
-</header>
+<nav>
+    <div class="logo">Juxlyep</div>
+    <ul>
+        <li><a href="#">メインページ</a></li>
+        <li><a href="#">最近の更新</a></li>
+        <li><a href="#">おまかせ表示</a></li>
+    </ul>
+</nav>
 
-<!-- ここにJavaScriptでカードを流し込む -->
-<main class="container" id="server-list"></main>
+<div class="main-wrapper" id="app">
+    <!-- JavaScriptによる動的描画エリア -->
+</div>
 
 <script>
-    // 実際にはここがBotやAPI（fetch）から取得したデータになる
-    const serversData = [
-        {
-            name: "雑談コミュニティ",
-            description: "みんなで楽しくお話しましょう！",
-            icon: "https://via.placeholder.com/60",
-            tags: ["雑談", "初心者"],
-            online: 12,
-            members: 150
-        },
-        {
-            name: "最強ゲーマー集結",
-            description: "FPS中心に活動しているサーバーです。",
-            icon: "https://via.placeholder.com/60",
-            tags: ["ゲーム", "FPS"],
-            online: 85,
-            members: 2400
-        },
-        {
-            name: "お勉強部屋",
-            description: "24時間作業通話やってます。",
-            icon: "https://via.placeholder.com/60",
-            tags: ["勉強", "作業"],
-            online: 5,
-            members: 80
-        }
-    ];
+    // 取得した記事データの流し込み用オブジェクト
+    const pageData = {
+        title: "記事のタイトル",
+        summary: "ここに記事の導入文を入力します。",
+        infobox: [
+            { label: "項目1", value: "内容1" },
+            { label: "項目2", value: "内容2" }
+        ],
+        sections: [
+            { heading: "概要", text: "ここに概要の文章を入力します。" },
+            { heading: "歴史", text: "ここに歴史の文章を入力します。" }
+        ]
+    };
 
-    const listContainer = document.getElementById('server-list');
-
-    // 取得したデータをinnerHTMLで流し込む処理
-    function renderServers(data) {
-        listContainer.innerHTML = data.map(server => `
-            <div class="server-card">
-                <div class="card-banner"></div>
-                <div class="card-content">
-                    <img src="${server.icon}" class="card-icon" alt="icon">
-                    <div class="server-name">${server.name}</div>
-                    <div class="tag-list">
-                        ${server.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
-                    </div>
-                    <p style="font-size: 0.8rem; color: var(--text-muted);">${server.description}</p>
-                </div>
-                <div class="server-stats">
-                    <span class="online-count">${server.online} Online</span>
-                    <span>${server.members} Members</span>
-                </div>
+    function renderPage(data) {
+        const app = document.getElementById('app');
+        
+        let infoboxHtml = `
+            <div class="infobox">
+                <table>
+                    <tr><th colspan="2" style="text-align:center;">基本情報</th></tr>
+                    ${data.infobox.map(item => `
+                        <tr><th>${item.label}</th><td>${item.value}</td></tr>
+                    `).join('')}
+                </table>
             </div>
+        `;
+
+        let sectionsHtml = data.sections.map(sec => `
+            <h2>${sec.heading}</h2>
+            <p>${sec.text}</p>
         `).join('');
+
+        app.innerHTML = `
+            <h1>${data.title}</h1>
+            <p class="tagline">出典: フリー百科事典『Juxlyep』</p>
+            ${infoboxHtml}
+            <div class="content-body">
+                <p><b>${data.title}</b>は、${data.summary}</p>
+                ${sectionsHtml}
+            </div>
+        `;
     }
 
-    // 実行
-    renderServers(serversData);
+    // 初期描画
+    renderPage(pageData);
 </script>
 
 </body>
