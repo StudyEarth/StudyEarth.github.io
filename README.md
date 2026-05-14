@@ -1,4 +1,4 @@
-# StudyEarth Project
+# Juxlyep Project
 
 This is a private academic research repository for Earth Science studies.
 
