@@ -10,21 +10,15 @@
         nav { width: 160px; padding: 15px; flex-shrink: 0; }
         .logo { font-family: serif; font-size: 26px; font-weight: bold; margin-bottom: 20px; text-align: center; }
         nav ul { list-style: none; padding: 0; border-top: 1px solid var(--border); }
-        nav a { text-decoration: none; color: var(--link); font-size: 12px; display: block; padding: 5px 0; }
-        
-        .main-wrapper { flex-grow: 1; background: white; border-left: 1px solid var(--border); min-height: 100vh; padding: 20px 40px; }
-        /* 表示制御：ID指定されたもの以外は隠す */
-        .content-section { display: none; }
-        .content-section:target { display: block; }
-        /* 初期表示（#なし）の時だけメインページを表示 */
-        #メインページ:not(:target) { display: block; }
-        /* 他がtargetの時はメインページを隠す */
-        :target ~ #メインページ { display: none; }
-
+        nav a { text-decoration: none; color: var(--link); font-size: 12px; display: block; padding: 5px 0; cursor: pointer; }
+        .main-wrapper { flex-grow: 1; background: white; border-left: 1px solid var(--border); min-height: 100vh; padding: 20px 40px; position: relative; }
         h1 { font-family: serif; font-size: 1.8rem; border-bottom: 1px solid var(--border); font-weight: normal; margin-top: 0; }
-        .infobox { float: right; width: 260px; border: 1px solid var(--border); background: #f8f9fa; margin-left: 20px; font-size: 12px; }
-        .infobox th { background: #cedff2; border: 1px solid var(--border); padding: 5px; text-align: left; }
-        .infobox td { border: 1px solid var(--border); padding: 5px; }
+        .edit-btn { position: absolute; top: 20px; right: 40px; background: #eee; border: 1px solid var(--border); padding: 5px 10px; cursor: pointer; border-radius: 2px; }
+        .edit-btn:hover { background: #ddd; }
+        textarea { width: 100%; height: 300px; margin-top: 10px; font-family: monospace; border: 1px solid var(--border); padding: 10px; }
+        .save-btn { background: #36c; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-top: 10px; border-radius: 2px; }
+        #display-area, #edit-area { display: none; }
+        .active { display: block !important; }
     </style>
 </head>
 <body>
@@ -32,35 +26,27 @@
 <nav>
     <div class="logo">Juxlyep</div>
     <ul>
-        <li><a href="#メインページ">メインページ</a></li>
-        <li><a href="#コミュニティ">コミュニティ</a></li>
-        <li><a href="#ヘルプ">ヘルプ</a></li>
+        <li><a onclick="location.hash='#メインページ'">メインページ</a></li>
+        <li><a onclick="const p=prompt('記事名を入力'); if(p) location.hash='#'+p">新規記事作成</a></li>
     </ul>
 </nav>
 
 <div class="main-wrapper">
-    <!-- 固定コンテンツ（HTML直書き） -->
-    <article id="メインページ" class="content-section">
-        <h1>メインページ</h1>
-        <div class="infobox"><table><tr><th>状態</th><td>稼働中</td></tr></table></div>
-        <p><b>Juxlyep</b>へようこそ。自由な百科事典です。</p>
-    </article>
+    <button class="edit-btn" id="edit-toggle">編集</button>
 
-    <article id="コミュニティ" class="content-section">
-        <h1>コミュニティ</h1>
-        <p>議論や交流の場です。</p>
-    </article>
+    <!-- 表示モード -->
+    <div id="display-area" class="active">
+        <h1 id="page-title">メインページ</h1>
+        <div id="page-body"></div>
+    </div>
 
-    <article id="ヘルプ" class="content-section">
-        <h1>ヘルプ</h1>
-        <p>使い方のガイドです。</p>
-    </article>
-
-    <!-- DBから読み込む時用の器 -->
-    <article id="dynamic" class="content-section">
-        <h1 id="dyn-title"></h1>
-        <div id="dyn-body"></div>
-    </article>
+    <!-- 編集モード -->
+    <div id="edit-area">
+        <h1 id="edit-title">記事の編集</h1>
+        <textarea id="editor" placeholder="記事の内容を入力してください..."></textarea>
+        <button class="save-btn" onclick="saveData()">保存する</button>
+        <button onclick="toggleMode(false)">キャンセル</button>
+    </div>
 </div>
 
 <script>
@@ -68,29 +54,45 @@
     const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1dWJ3c3RsbmRwZHhzanl3eGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzEwMzEsImV4cCI6MjA5NDMwNzAzMX0.47ck77pxTUzU4jvkMF8wiaxw-CRSRGEsB0ZC1w18dzs';
     const sb = window.supabase.createClient(S_URL, S_KEY);
 
+    let currentTitle = "";
+
     async function load() {
-        const hash = decodeURIComponent(location.hash.replace('#', ''));
-        if (!hash || ['メインページ', 'コミュニティ', 'ヘルプ'].includes(hash)) return;
+        currentTitle = decodeURIComponent(location.hash.replace('#', '')) || 'メインページ';
+        document.getElementById('page-title').textContent = currentTitle;
+        toggleMode(false);
 
-        // 固定ページ以外の時だけDBを叩く
-        const dyn = document.getElementById('dynamic');
-        const title = document.getElementById('dyn-title');
-        const body = document.getElementById('dyn-body');
-        
-        // CSSの:targetに任せられない動的遷移のため強制表示
-        document.querySelectorAll('.content-section').forEach(el => el.style.display = 'none');
-        dyn.style.display = 'block';
-        title.textContent = hash;
-        body.innerHTML = '読み込み中...';
+        const { data, error } = await sb.from('articles').select('*').eq('title', currentTitle).single();
 
-        const { data } = await sb.from('articles').select('*').eq('title', hash).single();
         if (data) {
-            body.innerHTML = `<p>${data.summary}</p>`;
+            document.getElementById('page-body').innerHTML = `<p>${data.summary}</p>`;
+            document.getElementById('editor').value = data.summary;
         } else {
-            body.innerHTML = `<p>記事「${hash}」は存在しません。</p>`;
+            document.getElementById('page-body').innerHTML = `<p>記事「${currentTitle}」は存在しません。「編集」ボタンから作成してください。</p>`;
+            document.getElementById('editor').value = "";
         }
     }
 
+    async function saveData() {
+        const content = document.getElementById('editor').value;
+        const { error } = await sb.from('articles').upsert(
+            { title: currentTitle, summary: content },
+            { onConflict: 'title' }
+        );
+
+        if (error) {
+            alert('保存に失敗しました。RLS（アクセス権限）の設定を確認してください。\n' + error.message);
+        } else {
+            alert('保存しました！');
+            load();
+        }
+    }
+
+    function toggleMode(isEdit) {
+        document.getElementById('display-area').classList.toggle('active', !isEdit);
+        document.getElementById('edit-area').classList.toggle('active', isEdit);
+    }
+
+    document.getElementById('edit-toggle').onclick = () => toggleMode(true);
     window.onhashchange = load;
     load();
 </script>
